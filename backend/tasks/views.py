@@ -6,6 +6,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db.models import Count, Sum, Q
+from django.utils import timezone
 from .models import Company, Contact, Deal, Task
 from .serializers import (
     CompanySerializer, ContactSerializer, DealSerializer,
@@ -56,9 +57,6 @@ def dashboard_stats(request):
         ).count() if 'timezone' in dir() else 0,
     }
     return Response(stats)
-
-
-from django.utils import timezone
 
 
 class CompanyViewSet(viewsets.ModelViewSet):
