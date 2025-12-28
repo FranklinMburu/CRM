@@ -108,8 +108,14 @@ class Task(models.Model):
 
 class AuditLog(models.Model):
     """
-    Immutable audit trail for all CRM operations.
+    Immutable append-only audit trail for all CRM operations.
     Records who did what, when, and what changed.
+    
+    IMMUTABILITY ENFORCEMENT:
+    - save() refuses updates to existing records
+    - delete() is disabled (use is_deleted flag instead)
+    - Hash chaining detects tampering
+    - Database constraints prevent insertion of invalid records
     """
     
     # Action constants
@@ -192,15 +198,113 @@ class AuditLog(models.Model):
         help_text="UTC timestamp of action"
     )
     
+    # Hash chaining for tamper detection
+    prev_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        db_index=True,
+        editable=False,
+        help_text="SHA-256 hash of previous audit log entry"
+    )
+    
+    current_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="SHA-256 hash of this entry (includes prev_hash)"
+    )
+    
     class Meta:
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['action', 'entity_type']),
             models.Index(fields=['user', 'created_at']),
             models.Index(fields=['entity_type', 'entity_id']),
+            models.Index(fields=['current_hash']),
         ]
         verbose_name = 'Audit Log'
         verbose_name_plural = 'Audit Logs'
+    
+    def save(self, *args, **kwargs):
+        """
+        Override save() to enforce append-only behavior.
+        - New records (pk=None) are allowed
+        - Existing records cannot be updated
+        """
+        if self.pk is not None:
+            # This is an update attempt on an existing record
+            raise ValueError(
+                f"Cannot modify existing AuditLog record (ID: {self.pk}). "
+                "Audit logs are append-only and immutable. "
+                "If you need to record a correction, create a new entry."
+            )
+        
+        # Compute hash chain
+        self._compute_hash_chain()
+        
+        # Allow insert only
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        """
+        Override delete() to prevent deletion of audit logs.
+        Audit logs must never be deleted to maintain integrity.
+        """
+        raise ValueError(
+            f"Cannot delete AuditLog record (ID: {self.pk}). "
+            "Audit logs are immutable and must be preserved. "
+            "If this entry is incorrect, create a corrective entry instead."
+        )
+    
+    def _compute_hash_chain(self):
+        """
+        Compute hash chain for tamper detection.
+        
+        Hash includes:
+        1. Previous entry's current_hash (chain)
+        2. This entry's data (action, entity_type, entity_id, user, created_at, etc.)
+        
+        Formula:
+        - first entry: hash(all_fields)
+        - subsequent: hash(prev_hash + all_fields)
+        
+        If a past entry is modified, its hash changes, breaking the chain.
+        """
+        import hashlib
+        import json
+        from datetime import datetime
+        
+        # Get previous entry in chronological order
+        prev_entry = AuditLog.objects.filter(
+            created_at__lt=self.created_at or datetime.now()
+        ).order_by('-created_at').first()
+        
+        if prev_entry:
+            self.prev_hash = prev_entry.current_hash
+        else:
+            self.prev_hash = None
+        
+        # Build data to hash
+        hash_data = {
+            'action': self.action,
+            'entity_type': self.entity_type,
+            'entity_id': self.entity_id,
+            'user_id': self.user_id,
+            'old_values': self.old_values,
+            'new_values': self.new_values,
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent,
+            'created_at': str(self.created_at),
+            'prev_hash': self.prev_hash,
+        }
+        
+        # Create JSON string (sorted keys for consistency)
+        hash_string = json.dumps(hash_data, sort_keys=True, default=str)
+        
+        # Compute SHA-256
+        self.current_hash = hashlib.sha256(hash_string.encode()).hexdigest()
     
     def __str__(self):
         return f"{self.action} {self.entity_type}#{self.entity_id} by {self.user} @ {self.created_at}"

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Company, Contact, Deal, Task
+from .models import Company, Contact, Deal, Task, AuditLog
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -68,3 +68,46 @@ class TaskSerializer(serializers.ModelSerializer):
                   'assigned_to_name', 'created_at', 'updated_at', 'created_by',
                   'created_by_name']
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for AuditLog.
+    Exposes audit trail with all metadata.
+    No write operations allowed.
+    """
+    user_username = serializers.CharField(source='user.username', read_only=True, allow_null=True)
+    ip_address = serializers.CharField(read_only=True, allow_null=True)
+    
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id',
+            'action',
+            'entity_type',
+            'entity_id',
+            'user',
+            'user_username',
+            'old_values',
+            'new_values',
+            'ip_address',
+            'user_agent',
+            'created_at',
+            'prev_hash',
+            'current_hash',
+        ]
+        read_only_fields = [
+            'id',
+            'action',
+            'entity_type',
+            'entity_id',
+            'user',
+            'user_username',
+            'old_values',
+            'new_values',
+            'ip_address',
+            'user_agent',
+            'created_at',
+            'prev_hash',
+            'current_hash',
+        ]

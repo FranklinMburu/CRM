@@ -1,14 +1,15 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onActivated } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { crmService } from '../services/api'
 
 const router = useRouter()
+const route = useRoute()
 const stats = ref(null)
 const loading = ref(true)
 const upcomingTasks = ref([])
 
-onMounted(async () => {
+const loadDashboard = async () => {
   try {
     const [statsData, tasksData] = await Promise.all([
       crmService.getDashboardStats(),
@@ -24,6 +25,14 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  await loadDashboard()
+})
+
+onActivated(async () => {
+  await loadDashboard()
 })
 
 const formatCurrency = (value) => {

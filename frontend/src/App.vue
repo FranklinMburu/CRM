@@ -60,6 +60,14 @@ const menuItems = [
     color: '#0288D1',
     gradient: 'linear-gradient(135deg, #039BE5 0%, #01579B 100%)'
   },
+  { 
+    title: 'Audit Logs', 
+    icon: 'mdi-history', 
+    route: '/audit-logs',
+    description: 'System activity trail',
+    color: '#00897B',
+    gradient: 'linear-gradient(135deg, #00897B 0%, #004D40 100%)'
+  },
 ]
 
 const handleLogout = async () => {
@@ -331,7 +339,7 @@ const getItemGradient = (item) => {
 
     <!-- Main Content -->
     <v-main class="main-content">
-      <router-view />
+      <router-view :key="$route.fullPath" />
     </v-main>
   </v-app>
 </template>

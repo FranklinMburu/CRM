@@ -120,6 +120,12 @@ export const crmService = {
   async deleteTask(id) {
     await api.delete(`/tasks/${id}/`)
   },
+
+  // Audit Logs
+  async getAuditLogs(params = {}) {
+    const response = await api.get('/audit-logs/', { params })
+    return response.data
+  },
 }
 
 export default api

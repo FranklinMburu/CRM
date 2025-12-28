@@ -1,7 +1,9 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onActivated } from 'vue'
+import { useRoute } from 'vue-router'
 import { crmService } from '../services/api'
 
+const route = useRoute()
 const deals = ref([])
 const companies = ref([])
 const contacts = ref([])
@@ -62,10 +64,15 @@ onMounted(async () => {
   await Promise.all([loadDeals(), loadCompanies(), loadContacts()])
 })
 
+onActivated(async () => {
+  await Promise.all([loadDeals(), loadCompanies(), loadContacts()])
+})
+
 const loadDeals = async () => {
   loading.value = true
   try {
-    deals.value = await crmService.getDeals()
+    const response = await crmService.getDeals()
+    deals.value = response.results || response || []
   } catch (error) {
     console.error('Failed to load deals:', error)
   } finally {
@@ -75,7 +82,8 @@ const loadDeals = async () => {
 
 const loadCompanies = async () => {
   try {
-    companies.value = await crmService.getCompanies()
+    const response = await crmService.getCompanies()
+    companies.value = response.results || response || []
   } catch (error) {
     console.error('Failed to load companies:', error)
   }
@@ -83,7 +91,8 @@ const loadCompanies = async () => {
 
 const loadContacts = async () => {
   try {
-    contacts.value = await crmService.getContacts()
+    const response = await crmService.getContacts()
+    contacts.value = response.results || response || []
   } catch (error) {
     console.error('Failed to load contacts:', error)
   }
